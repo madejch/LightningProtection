@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LightningProtection.Acad/LightningProtection.Acad.csproj" />
+    <Project Path="src/LightningProtection.Core/LightningProtection.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LightningProtection.Core.Tests/LightningProtection.Core.Tests.csproj" />
+  </Folder>
+</Solution>

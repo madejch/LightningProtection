@@ -1,0 +1,129 @@
+<Window x:Class="LightningProtection.Acad.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Молниезащита — расчёт зон защиты"
+        Width="1100" Height="760" MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="10,3" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Margin" Value="4,0,14,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="10">
+        <!-- Общие данные -->
+        <GroupBox DockPanel.Dock="Top" Header="Исходные данные" Padding="6">
+            <StackPanel>
+                <WrapPanel>
+                    <TextBlock Text="Норма:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="NormBox" Width="200" Margin="4,0,14,0" DisplayMemberPath="Title" SelectedValuePath="Value" />
+                    <TextBlock Text="Грозовая деятельность Td, ч/год:" VerticalAlignment="Center" />
+                    <TextBox x:Name="TdBox" Width="50" />
+                    <TextBlock Text="Шаг подбора, м:" VerticalAlignment="Center" />
+                    <TextBox x:Name="StepBox" Width="40" />
+                    <TextBlock Text="Мачта от, м:" VerticalAlignment="Center" />
+                    <TextBox x:Name="MinMastBox" Width="40" />
+                    <TextBlock Text="h не более, м:" VerticalAlignment="Center" />
+                    <TextBox x:Name="MaxHeightBox" Width="40" />
+                </WrapPanel>
+                <WrapPanel Margin="0,6,0,0">
+                    <TextBlock Text="Единиц чертежа в 1 м:" VerticalAlignment="Center" />
+                    <TextBox x:Name="UpmBox" Width="50" />
+                    <TextBlock Text="Масштаб плана 1:" VerticalAlignment="Center" />
+                    <TextBox x:Name="ScaleBox" Width="50"
+                             ToolTip="0 или 1 — подобрать по размерам плана: чертёж в натуральную величину, текст и размеры увеличиваются под масштаб печати" />
+                    <TextBlock Text="Вид сбоку 1:" VerticalAlignment="Center" />
+                    <TextBox x:Name="SideScaleBox" Width="50" ToolTip="0 или 1 — как у плана" />
+                    <TextBlock Text="Высота текста, мм:" VerticalAlignment="Center" />
+                    <TextBox x:Name="TextHeightBox" Width="40" />
+                    <TextBlock Text="Вид сбоку — ось вида от X, °:" VerticalAlignment="Center" />
+                    <TextBox x:Name="AngleBox" Width="40" />
+                </WrapPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Кнопки -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" LastChildFill="False">
+            <Button Content="Рассчитать" Click="Calculate_Click" />
+            <Button Content="Подобрать высоту" Click="Optimize_Click" FontWeight="Bold" />
+            <Button Content="Отрисовать на чертеже" Click="Draw_Click" />
+            <CheckBox x:Name="ResetPlacementBox" Content="указать места вида, таблиц и текста заново"
+                      VerticalAlignment="Center" Margin="4,0,0,0" />
+            <Button DockPanel.Dock="Right" Content="Отмена" IsCancel="True" Margin="6,0,0,0" />
+            <Button DockPanel.Dock="Right" Content="Сохранить и закрыть" Click="Save_Click" IsDefault="True" />
+        </DockPanel>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <GroupBox Grid.Row="0" Header="Защищаемые объекты" Padding="4">
+                <DockPanel>
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                        <Button Content="+ Здание (полилиния)…" Click="AddBuilding_Click" />
+                        <Button Content="+ Продувочная свеча ГРУ…" Click="AddGasVent_Click" />
+                        <Button Content="+ Дыхательный клапан…" Click="AddValve_Click" />
+                        <Button Content="Удалить" Click="DeleteObject_Click" />
+                    </WrapPanel>
+                    <DataGrid x:Name="ObjectsGrid">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Наименование" Binding="{Binding Name}" Width="2*" />
+                            <DataGridTextColumn Header="Тип" Binding="{Binding KindTitle, Mode=OneWay}" IsReadOnly="True" Width="*" />
+                            <DataGridTextColumn Header="Отм. низа, м" Binding="{Binding BaseElevation}" Width="80" />
+                            <DataGridTextColumn Header="Отм. верха / обреза, м" Binding="{Binding SourceElevation}" Width="130" />
+                            <DataGridTextColumn Header="H пространства, м" Binding="{Binding SpaceHeight}" Width="110" />
+                            <DataGridTextColumn Header="R пространства, м" Binding="{Binding Radius}" Width="110" />
+                            <DataGridComboBoxColumn x:Name="RdZoneColumn" Header="Зона (РД-87)" Width="90"
+                                                    SelectedValueBinding="{Binding RdZone}" SelectedValuePath="Value" DisplayMemberPath="Title" />
+                            <DataGridComboBoxColumn x:Name="SoColumn" Header="Pз (СО 153)" Width="90"
+                                                    SelectedValueBinding="{Binding SoReliability}" SelectedValuePath="Value" DisplayMemberPath="Title" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </GroupBox>
+
+            <GroupBox Grid.Row="1" Header="Молниеприёмники" Padding="4">
+                <DockPanel>
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                        <Button Content="+ Указать на чертеже…" Click="AddRods_Click" />
+                        <Button Content="Удалить" Click="DeleteRod_Click" />
+                        <TextBlock VerticalAlignment="Center" Foreground="Gray"
+                                   Text="Подбор меняет высоту мачт без отметки «Фикс.». Координаты — в метрах." />
+                    </WrapPanel>
+                    <DataGrid x:Name="RodsGrid">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Обозначение" Binding="{Binding Name}" Width="*" />
+                            <DataGridTextColumn Header="X, м" Binding="{Binding X, StringFormat=0.###}" Width="90" />
+                            <DataGridTextColumn Header="Y, м" Binding="{Binding Y, StringFormat=0.###}" Width="90" />
+                            <DataGridTextColumn Header="Отм. установки, м" Binding="{Binding BaseElevation}" Width="120" />
+                            <DataGridTextColumn Header="Мачта, м" Binding="{Binding MastHeight}" Width="80" />
+                            <DataGridCheckBoxColumn Header="Фикс." Binding="{Binding IsHeightFixed}" Width="50" />
+                            <DataGridTextColumn Header="h полная, м" Binding="{Binding TotalHeight, Mode=OneWay, StringFormat=0.00}" IsReadOnly="True" Width="90" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </GroupBox>
+
+            <GroupBox Grid.Row="2" Header="Результат расчёта" Padding="4">
+                <TextBox x:Name="ResultBox" IsReadOnly="True" FontFamily="Consolas" FontSize="12" Margin="0"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"
+                         VerticalContentAlignment="Top" />
+            </GroupBox>
+        </Grid>
+    </DockPanel>
+</Window>
