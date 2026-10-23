@@ -21,15 +21,23 @@
 (текст — [installer/USER_GUIDE.txt](installer/USER_GUIDE.txt)). Удаление — там же или через «Параметры Windows» →
 «Приложения».
 
+Если антивирус блокирует установщик (неподписанный exe может попасть под эвристику, например
+`Trojan:Win32/Sabsik.FL.A!ml`), скачайте из релиза архив `LightningProtection-<версия>.zip` и скопируйте папку
+`LightningProtection.bundle` в `%APPDATA%\Autodesk\ApplicationPlugins` — см.
+[installer/MANUAL_INSTALL.txt](installer/MANUAL_INSTALL.txt).
+
 ## Сборка
 
 Нужны .NET SDK 10 и, для установщика, [Inno Setup 6](https://jrsoftware.org/isinfo.php)
 (`winget install JRSoftware.InnoSetup`).
 
 ```powershell
-.\build-bundle.ps1 -Installer   # пакет dist\LightningProtection.bundle и dist\LightningProtection-Setup-<версия>.exe
-.\build-bundle.ps1 -Install     # пакет и сразу установка в ApplicationPlugins (для разработки)
+.\build-bundle.ps1 -Installer -Zip   # пакет dist\LightningProtection.bundle, установщик и архив для ручной установки
+.\build-bundle.ps1 -Install          # пакет и сразу установка в ApplicationPlugins (для разработки)
 ```
+
+Для релиза сначала закоммитьте изменения, потом собирайте: .NET SDK вшивает хэш текущего коммита в версию
+сборки (`0.2.0+<коммит>`).
 
 Скрипт собирает три версии (`net48` для 2024, `net8.0-windows` для 2025–2026, `net10.0-windows` для 2027).
 Версия берётся из `Directory.Build.props`. Для разовой проверки можно сделать `NETLOAD` нужной DLL из `dist`.
@@ -91,7 +99,7 @@ src/LightningProtection.Acad   плагин AutoCAD: команды, окно WP
 tests/                         модульные тесты ядра (xUnit)
 templates/description.txt      шаблон описательной части
 bundle/PackageContents.xml     манифест автозагрузки
-installer/                     установщик Inno Setup и инструкция пользователя
+installer/                     установщик Inno Setup, инструкция пользователя и инструкция по ручной установке
 ```
 
 Тесты: `dotnet test tests/LightningProtection.Core.Tests`.

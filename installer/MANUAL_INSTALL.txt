@@ -1,0 +1,34 @@
+﻿МОЛНИЕЗАЩИТА ДЛЯ AUTOCAD — УСТАНОВКА ВРУЧНУЮ (БЕЗ УСТАНОВЩИКА)
+
+Этот архив — тот же плагин, что ставит установщик LightningProtection-Setup-<версия>.exe,
+только без exe-файла. Используйте его, если антивирус блокирует установщик.
+
+УСТАНОВКА
+
+ 1. Закройте AutoCAD.
+ 2. Нажмите Win + R, вставьте строку ниже и нажмите Enter — откроется папка плагинов:
+        %APPDATA%\Autodesk\ApplicationPlugins
+    Если папки ApplicationPlugins нет, создайте её в %APPDATA%\Autodesk.
+ 3. Если там уже есть папка LightningProtection.bundle от прошлой версии — удалите её.
+    (Если плагин ставился установщиком, лучше удалить его через «Параметры Windows» →
+    «Приложения» → «Молниезащита для AutoCAD».)
+ 4. Скопируйте из архива в эту папку папку LightningProtection.bundle целиком.
+    Должно получиться:
+        %APPDATA%\Autodesk\ApplicationPlugins\LightningProtection.bundle\PackageContents.xml
+ 5. Запустите AutoCAD. На ленте появится вкладка «Молниезащита».
+    Если AutoCAD спросит про неподписанный файл LightningProtection.Acad.dll,
+    выберите «Всегда загружать».
+
+Если вкладки нет, Windows могла заблокировать скачанные файлы. Закройте AutoCAD, откройте
+PowerShell и выполните (снимает пометку «файл из интернета» с файлов плагина):
+    Get-ChildItem "$env:APPDATA\Autodesk\ApplicationPlugins\LightningProtection.bundle" -Recurse | Unblock-File
+Затем снова запустите AutoCAD.
+
+Шрифт GOST Common плагин установит сам при первом запуске, если его нет в системе.
+
+УДАЛЕНИЕ
+
+ Закройте AutoCAD и удалите папку
+    %APPDATA%\Autodesk\ApplicationPlugins\LightningProtection.bundle
+
+Как пользоваться плагином — в файле «Инструкция.txt» в этом архиве.

@@ -3,12 +3,16 @@
 # %APPDATA%\Autodesk\ApplicationPlugins, откуда AutoCAD загружает его при запуске.
 # -OutDir — другая папка для пакета (например, если AutoCAD держит открытым dist).
 # -Installer — дополнительно собрать установщик LightningProtection-Setup-<версия>.exe (Inno Setup 6).
-param([switch]$Install, [switch]$Installer, [string]$OutDir = 'dist')
+# -Zip — дополнительно собрать архив LightningProtection-<версия>.zip для установки без exe:
+#        пакет плагина, инструкция по ручной установке и инструкция пользователя.
+param([switch]$Install, [switch]$Installer, [switch]$Zip, [string]$OutDir = 'dist')
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $project = Join-Path $root 'src\LightningProtection.Acad\LightningProtection.Acad.csproj'
-$bundle = Join-Path (Join-Path $root $OutDir) 'LightningProtection.bundle'
+$outRoot = Join-Path $root $OutDir
+$bundle = Join-Path $outRoot 'LightningProtection.bundle'
+$appVersion = ([xml](Get-Content (Join-Path $root 'Directory.Build.props') -Encoding UTF8)).Project.PropertyGroup.Version
 
 dotnet build $project -c Release -nologo
 if ($LASTEXITCODE -ne 0) { throw 'Сборка не удалась.' }
@@ -44,10 +48,33 @@ if ($Installer) {
         (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
         (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')) | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (-not $iscc) { throw 'Не найден Inno Setup 6 (ISCC.exe). Установите его: winget install JRSoftware.InnoSetup' }
-    $version = ([xml](Get-Content (Join-Path $root 'Directory.Build.props') -Encoding UTF8)).Project.PropertyGroup.Version
-    & $iscc /Q "/DAppVersion=$version" "/DBundleDir=$bundle" "/O$(Join-Path $root $OutDir)" (Join-Path $root 'installer\LightningProtection.iss')
+    & $iscc /Q "/DAppVersion=$appVersion" "/DBundleDir=$bundle" "/O$outRoot" (Join-Path $root 'installer\LightningProtection.iss')
     if ($LASTEXITCODE -ne 0) { throw 'Сборка установщика не удалась.' }
-    Write-Host "Установщик: $(Join-Path (Join-Path $root $OutDir) "LightningProtection-Setup-$version.exe")"
+    Write-Host "Установщик: $(Join-Path $outRoot "LightningProtection-Setup-$appVersion.exe")"
+}
+
+if ($Zip) {
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $zipPath = Join-Path $outRoot "LightningProtection-$appVersion.zip"
+    if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+    # Имена записей — через «/», чтобы архив одинаково читался всеми распаковщиками.
+    $entries = [ordered]@{
+        'Установка вручную.txt' = Join-Path $root 'installer\MANUAL_INSTALL.txt'
+        'Инструкция.txt'        = Join-Path $root 'installer\USER_GUIDE.txt'
+    }
+    foreach ($file in Get-ChildItem $bundle -Recurse -File) {
+        $entries['LightningProtection.bundle/' + $file.FullName.Substring($bundle.Length + 1).Replace('\', '/')] = $file.FullName
+    }
+    $archive = [IO.Compression.ZipFile]::Open($zipPath, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach ($entry in $entries.GetEnumerator()) {
+            [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $entry.Value, $entry.Key,
+                [IO.Compression.CompressionLevel]::Optimal)
+        }
+    } finally {
+        $archive.Dispose()
+    }
+    Write-Host "Архив: $zipPath"
 }
 
 if ($Install) {
