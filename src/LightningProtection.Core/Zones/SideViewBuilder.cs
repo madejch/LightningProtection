@@ -106,28 +106,25 @@ namespace LightningProtection.Core.Zones
                 }));
             }
 
-            for (var i = 0; i < rods.Count; i++)
+            foreach (var (i, j) in RodNeighbors.Build(rods).Pairs)
             {
-                for (var j = i + 1; j < rods.Count; j++)
-                {
-                    var distance = Math.Sqrt(Math.Pow(rods[i].X - rods[j].X, 2) + Math.Pow(rods[i].Y - rods[j].Y, 2));
-                    var pair = norm.Pair(cones[i].H, cones[j].H, distance, level);
-                    if (!pair.Joined || Math.Abs(us[i] - us[j]) < 1e-3)
-                        continue;
+                var distance = Math.Sqrt(Math.Pow(rods[i].X - rods[j].X, 2) + Math.Pow(rods[i].Y - rods[j].Y, 2));
+                var pair = norm.Pair(cones[i].H, cones[j].H, distance, level);
+                if (!pair.Joined || Math.Abs(us[i] - us[j]) < 1e-3)
+                    continue;
 
-                    var (a, b) = us[i] < us[j] ? (i, j) : (j, i);
-                    var mid = (us[a] + us[b]) / 2;
-                    var ridge = factory.CreatePolygon(new[]
-                    {
-                        new Coordinate(us[a], 0),
-                        new Coordinate(us[a], cones[a].H0),
-                        new Coordinate(mid, pair.Hc),
-                        new Coordinate(us[b], cones[b].H0),
-                        new Coordinate(us[b], 0),
-                        new Coordinate(us[a], 0),
-                    });
-                    parts.Add(ridge.IsValid ? ridge : ridge.Buffer(0));
-                }
+                var (a, b) = us[i] < us[j] ? (i, j) : (j, i);
+                var mid = (us[a] + us[b]) / 2;
+                var ridge = factory.CreatePolygon(new[]
+                {
+                    new Coordinate(us[a], 0),
+                    new Coordinate(us[a], cones[a].H0),
+                    new Coordinate(mid, pair.Hc),
+                    new Coordinate(us[b], cones[b].H0),
+                    new Coordinate(us[b], 0),
+                    new Coordinate(us[a], 0),
+                });
+                parts.Add(ridge.IsValid ? ridge : ridge.Buffer(0));
             }
 
             var union = UnaryUnionOp.Union(parts);

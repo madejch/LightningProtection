@@ -89,10 +89,11 @@ namespace LightningProtection.Core.Tests
             var project = GruProject();
             HeightOptimizer.Optimize(project);
             var result = ProtectionCalculator.Calculate(project);
-            // Здание — зона Б на +9,000; свеча — зона А на +11,000; клапан — зона А на +6,500.
+            // Здание — зона Б на +9,000; свеча — зона Б на +11,000; клапан — зона А на +6,500.
             Assert.Equal(3, result.Sections.Count);
-            Assert.Contains(result.Sections, s => s.Level == ZoneLevel.RdA && s.Hx == 11);
+            Assert.Contains(result.Sections, s => s.Level == ZoneLevel.RdB && s.Hx == 11);
             Assert.Contains(result.Sections, s => s.Level == ZoneLevel.RdB && s.Hx == 9);
+            Assert.Contains(result.Sections, s => s.Level == ZoneLevel.RdA && s.Hx == 6.5);
         }
 
         [Fact]
@@ -131,6 +132,104 @@ namespace LightningProtection.Core.Tests
             project.Drawing.SideViewScale = 100;
             Assert.Equal(200, DrawingScales.PlanScale(project, result));
             Assert.Equal(100, DrawingScales.SideViewScale(project, 200));
+        }
+
+        [Fact]
+        public void GasVent_DefaultsToZoneB()
+        {
+            var vent = ObjectPresets.GasVent("Свеча", new Point2(0, 0), 6);
+            Assert.Equal(RdZone.B, vent.RdZone);
+            Assert.Equal(SpaceShape.Cylinder, vent.Shape);
+        }
+
+        [Fact]
+        public void Hemisphere_IsCheckedOverItsHeight_AndIsLessStrictThanCylinder()
+        {
+            // Мачта h = 20 м, зона Б; свеча с обрезом +6,000 на расстоянии d.
+            // Цилиндр 5 × 5 м защищён при d ≤ 7,07 м, полусфера R = 5 м — примерно до 10,6 м.
+            ProtectionProject Project(double d, SpaceShape shape)
+            {
+                var project = new ProtectionProject { Norm = NormKind.Rd87 };
+                project.Rods.Add(new LightningRod { Name = "Мл1", MastHeight = 20 });
+                var vent = ObjectPresets.GasVent("Свеча", new Point2(d, 0), 6);
+                vent.Shape = shape;
+                project.Objects.Add(vent);
+                return project;
+            }
+
+            Assert.False(ProtectionCalculator.Calculate(Project(9, SpaceShape.Cylinder)).AllProtected);
+            Assert.True(ProtectionCalculator.Calculate(Project(9, SpaceShape.Hemisphere)).AllProtected);
+            Assert.False(ProtectionCalculator.Calculate(Project(12, SpaceShape.Hemisphere)).AllProtected);
+
+            var hemisphere = ProtectionCalculator.Calculate(Project(9, SpaceShape.Hemisphere));
+            Assert.Equal(6, Assert.Single(hemisphere.Sections).Hx);
+            Assert.Contains("полусфера R = 5,00 м",
+                ReportBuilder.BuildTables(Project(9, SpaceShape.Hemisphere), hemisphere)[0].Rows[0][2]);
+        }
+
+        [Fact]
+        public void Neighbors_CollinearRods_PairOnlyAdjacent()
+        {
+            var rods = new List<LightningRod>
+            {
+                new LightningRod { X = 0, Y = 0 },
+                new LightningRod { X = 40, Y = 0 },
+                new LightningRod { X = 20, Y = 0 },
+            };
+            var neighbors = RodNeighbors.Build(rods);
+            Assert.Equal(2, neighbors.Pairs.Count);
+            Assert.Contains((0, 2), neighbors.Pairs);
+            Assert.Contains((1, 2), neighbors.Pairs);
+            Assert.Empty(neighbors.Triangles);
+        }
+
+        [Fact]
+        public void Neighbors_RodInsideTriangle_IsNotPairedAcross()
+        {
+            // Треугольник из трёх мачт и четвёртая в центре: пары только по рёбрам триангуляции.
+            var rods = new List<LightningRod>
+            {
+                new LightningRod { X = 0, Y = 0 },
+                new LightningRod { X = 40, Y = 0 },
+                new LightningRod { X = 20, Y = 34 },
+                new LightningRod { X = 20, Y = 12 },
+            };
+            var neighbors = RodNeighbors.Build(rods);
+            Assert.Equal(6, neighbors.Pairs.Count);
+            Assert.Equal(3, neighbors.Triangles.Count);
+            Assert.DoesNotContain(neighbors.Triangles, t => t == (0, 1, 2));
+        }
+
+        [Fact]
+        public void Rd87_HasNoSpurAboveHc_So153_Has()
+        {
+            // Две мачты h = 20 м на 30 м: зона Б, hc = 18,4 − 0,14·10 = 17 м. На hx = 17,5 м (выше hc)
+            // по РД-87 остаются только круги одиночных мачт, по СО 153 добавляется выступ lx.
+            var rods = new List<LightningRod>
+            {
+                new LightningRod { X = 0, Y = 0, MastHeight = 20 },
+                new LightningRod { X = 30, Y = 0, MastHeight = 20 },
+            };
+            var rd = new PlanZoneBuilder(Norms.Rd87Norm.Instance).Build(rods, ZoneLevel.RdB, 17.5);
+            var rx = Norms.Rd87Norm.Instance.Single(20, ZoneLevel.RdB).Rx(17.5);
+            Assert.Equal(2 * System.Math.PI * rx * rx, rd.Area, 1);
+
+            var so = new PlanZoneBuilder(Norms.So153Norm.Instance).Build(rods, ZoneLevel.So090, 16);
+            var soRx = Norms.So153Norm.Instance.Single(20, ZoneLevel.So090).Rx(16);
+            Assert.True(so.Area > 2 * System.Math.PI * soRx * soRx * 1.01);
+        }
+
+        [Fact]
+        public void Description_NamesNormItems()
+        {
+            var project = GruProject();
+            HeightOptimizer.Optimize(project);
+            var text = DescriptionBuilder.Build(project, ProtectionCalculator.Calculate(project));
+            Assert.Contains("прил. 3, п. 1.1", text);
+            Assert.Contains("пп. 2.1, 2.2", text);
+            Assert.Contains("прил. 2", text);
+            Assert.Contains("п. 2.6", text);
+            Assert.Contains("п. 2.18", text);
         }
 
         [Fact]

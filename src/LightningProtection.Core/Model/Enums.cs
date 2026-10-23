@@ -48,6 +48,15 @@ namespace LightningProtection.Core.Model
         Other = 3,
     }
 
+    /// <summary>Форма защищаемого пространства над обрезом трубы (РД 34.21.122-87, п. 2.6).</summary>
+    public enum SpaceShape
+    {
+        /// <summary>Цилиндр H × R — трубы с колпаками или «гусаками», дыхательные клапаны.</summary>
+        Cylinder = 0,
+        /// <summary>Полусфера радиусом R — прямые газоотводные и дыхательные трубы.</summary>
+        Hemisphere = 1,
+    }
+
     public static class EnumTitles
     {
         public static string Title(this NormKind norm) => norm switch

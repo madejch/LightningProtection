@@ -40,6 +40,8 @@ namespace LightningProtection.Core.Norms
             return new ConeZone(h, h0, r0);
         }
 
+        public override bool HasSpurAboveHc => true;
+
         public override string SingleSource => "СО 153-34.21.122-2003, табл. 3.4, ф. (3.1)";
         public override string PairSource => "СО 153-34.21.122-2003, табл. 3.6, ф. (3.3), (3.6)";
 

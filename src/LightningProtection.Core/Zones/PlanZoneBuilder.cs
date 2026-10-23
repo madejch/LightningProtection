@@ -37,38 +37,36 @@ namespace LightningProtection.Core.Zones
                 if (radii[i] > 1e-9)
                     parts.Add(Circle(centers[i], radii[i]));
 
+            // Двойные зоны — только для соседних молниеприёмников (РД-87, прил. 3, п. 3).
+            var neighbors = RodNeighbors.Build(rods);
             var joinedBelowHc = new bool[rods.Count, rods.Count];
-            for (var i = 0; i < rods.Count; i++)
+            foreach (var (i, j) in neighbors.Pairs)
             {
-                for (var j = i + 1; j < rods.Count; j++)
-                {
-                    var distance = centers[i].Distance(centers[j]);
-                    if (distance < 1e-6)
-                        continue;
-                    var pair = _norm.Pair(cones[i].H, cones[j].H, distance, level);
-                    if (!pair.Joined)
-                        continue;
+                var distance = centers[i].Distance(centers[j]);
+                if (distance < 1e-6)
+                    continue;
+                var pair = _norm.Pair(cones[i].H, cones[j].H, distance, level);
+                if (!pair.Joined)
+                    continue;
 
-                    if (hx < pair.Hc)
-                    {
-                        joinedBelowHc[i, j] = joinedBelowHc[j, i] = true;
-                        AddIfNotNull(parts, Bridge(centers[i], radii[i], centers[j], radii[j], pair.Rcx(hx)));
-                    }
-                    else
-                    {
-                        // Выше hc зона распадается, но вдоль оси пары каждая часть вытянута на lx
-                        // (СО 153, формула 3.5): lx = L (h0 − hx) / (2 (h0 − hc)).
-                        AddIfNotNull(parts, Spur(centers[i], radii[i], cones[i].H0, centers[j], pair.Hc, hx, distance));
-                        AddIfNotNull(parts, Spur(centers[j], radii[j], cones[j].H0, centers[i], pair.Hc, hx, distance));
-                    }
+                if (hx < pair.Hc)
+                {
+                    joinedBelowHc[i, j] = joinedBelowHc[j, i] = true;
+                    AddIfNotNull(parts, Bridge(centers[i], radii[i], centers[j], radii[j], pair.Rcx(hx)));
+                }
+                else if (_norm.HasSpurAboveHc)
+                {
+                    // Выше hc зона распадается, но вдоль оси пары каждая часть вытянута на lx
+                    // (СО 153, формула 3.5): lx = L (h0 − hx) / (2 (h0 − hc)).
+                    AddIfNotNull(parts, Spur(centers[i], radii[i], cones[i].H0, centers[j], pair.Hc, hx, distance));
+                    AddIfNotNull(parts, Spur(centers[j], radii[j], cones[j].H0, centers[i], pair.Hc, hx, distance));
                 }
             }
 
-            for (var i = 0; i < rods.Count; i++)
-                for (var j = i + 1; j < rods.Count; j++)
-                    for (var k = j + 1; k < rods.Count; k++)
-                        if (joinedBelowHc[i, j] && joinedBelowHc[j, k] && joinedBelowHc[i, k])
-                            AddIfNotNull(parts, Polygon(centers[i], centers[j], centers[k]));
+            // Внутренняя область защищена, если rcx > 0 у всех трёх пар треугольника.
+            foreach (var (i, j, k) in neighbors.Triangles)
+                if (joinedBelowHc[i, j] && joinedBelowHc[j, k] && joinedBelowHc[i, k])
+                    AddIfNotNull(parts, Polygon(centers[i], centers[j], centers[k]));
 
             if (parts.Count == 0)
                 return Factory.CreatePolygon();
@@ -79,11 +77,7 @@ namespace LightningProtection.Core.Zones
         public static Geometry Footprint(ProtectedObject obj)
         {
             if (obj.IsCircular)
-            {
-                // Описанный многоугольник, чтобы аппроксимация не занижала размер объекта.
-                var n = QuadrantSegments * 4;
-                return Circle(new Coordinate(obj.Center.X, obj.Center.Y), obj.Radius / Math.Cos(Math.PI / n));
-            }
+                return CircumscribedCircle(new Coordinate(obj.Center.X, obj.Center.Y), obj.Radius);
 
             var coords = obj.Contour.Select(p => new Coordinate(p.X, p.Y)).ToList();
             if (!coords[0].Equals2D(coords[coords.Count - 1]))
@@ -94,6 +88,10 @@ namespace LightningProtection.Core.Zones
 
         public static Geometry Circle(Coordinate center, double radius)
             => Factory.CreatePoint(center).Buffer(radius, QuadrantSegments);
+
+        /// <summary>Описанный многоугольник круга — чтобы аппроксимация не занижала размер объекта.</summary>
+        public static Geometry CircumscribedCircle(Coordinate center, double radius)
+            => Circle(center, radius / Math.Cos(Math.PI / (QuadrantSegments * 4)));
 
         /// <summary>Перемычка между молниеприёмниками: касательные к кругам rx через точки ±rcx в середине.</summary>
         private static Geometry? Bridge(Coordinate c1, double r1, Coordinate c2, double r2, double rcx)

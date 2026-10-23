@@ -4,7 +4,7 @@
 ; Сборка: build-bundle.ps1 -Installer (сначала собирается пакет dist\LightningProtection.bundle).
 
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.2.0"
 #endif
 #define AppName "Молниезащита для AutoCAD"
 #ifndef BundleDir

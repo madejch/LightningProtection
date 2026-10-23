@@ -51,6 +51,11 @@ namespace LightningProtection.Acad.UI
                 new Choice(NormKind.Rd87, NormKind.Rd87.Title()),
             };
             RdZoneColumn.ItemsSource = new[] { new Choice(RdZone.A, "А"), new Choice(RdZone.B, "Б") };
+            ShapeColumn.ItemsSource = new[]
+            {
+                new Choice(SpaceShape.Cylinder, "Цилиндр"),
+                new Choice(SpaceShape.Hemisphere, "Полусфера"),
+            };
             SoColumn.ItemsSource = new[]
             {
                 new Choice(SoReliability.P090, SoReliability.P090.Title()),

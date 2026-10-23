@@ -110,9 +110,18 @@ namespace LightningProtection.Core.Calculation
                     .OrderBy(g => g.Key.Hx).ThenBy(g => g.Key.Level)
                     .ToList();
 
+                var zones = new Dictionary<(ZoneLevel, double), Geometry>();
+                Geometry ZoneAt(ZoneLevel level, double hx)
+                {
+                    var key = (level, Math.Round(hx, 4));
+                    if (!zones.TryGetValue(key, out var cached))
+                        zones[key] = cached = builder.Build(project.Rods, level, hx);
+                    return cached;
+                }
+
                 foreach (var group in groups)
                 {
-                    var zone = builder.Build(project.Rods, group.Key.Level, group.Key.Hx);
+                    var zone = ZoneAt(group.Key.Level, group.Key.Hx);
                     var section = new ZoneSection
                     {
                         Name = groups.Count > 1 ? $"hx{result.Sections.Count + 1}" : "hx",
@@ -126,7 +135,9 @@ namespace LightningProtection.Core.Calculation
                     foreach (var obj in group)
                     {
                         var footprint = PlanZoneBuilder.Footprint(obj);
-                        var uncovered = zone.IsEmpty ? footprint.Area : footprint.Difference(zone).Area;
+                        var uncovered = obj.IsHemisphere
+                            ? HemisphereUncovered(obj, z => ZoneAt(group.Key.Level, z))
+                            : Uncovered(footprint, zone);
                         result.Objects.Add(new ObjectCheck
                         {
                             Object = obj,
@@ -153,6 +164,31 @@ namespace LightningProtection.Core.Calculation
             return result;
         }
 
+        /// <summary>Число ступеней, которыми полусфера описывается снаружи при проверке.</summary>
+        private const int HemisphereSteps = 12;
+
+        private static double Uncovered(Geometry footprint, Geometry zone)
+            => zone.IsEmpty ? footprint.Area : footprint.Difference(zone).Area;
+
+        /// <summary>
+        /// Полусфера заменяется описанной ступенчатой фигурой: на высоте z(k+1) проверяется круг радиуса
+        /// полусферы на высоте z(k). Сечения зоны с высотой только уменьшаются, поэтому проверка
+        /// с запасом. Возвращает наибольшую незащищённую площадь среди ступеней.
+        /// </summary>
+        private static double HemisphereUncovered(ProtectedObject obj, Func<double, Geometry> zoneAt)
+        {
+            var center = new NetTopologySuite.Geometries.Coordinate(obj.Center.X, obj.Center.Y);
+            var worst = 0.0;
+            for (var k = 0; k < HemisphereSteps; k++)
+            {
+                var z = obj.Radius * k / HemisphereSteps;
+                var radius = Math.Sqrt(Math.Max(0, obj.Radius * obj.Radius - z * z));
+                var hx = obj.SourceElevation + obj.Radius * (k + 1) / HemisphereSteps;
+                worst = Math.Max(worst, Uncovered(PlanZoneBuilder.CircumscribedCircle(center, radius), zoneAt(hx)));
+            }
+            return worst;
+        }
+
         private static void AddRodAndPairRows(CalculationResult result, ZoneNorm norm, IReadOnlyList<LightningRod> rods,
             ZoneSection section)
         {
@@ -164,26 +200,23 @@ namespace LightningProtection.Core.Calculation
                 result.Rods.Add(new RodCheck { Rod = rod, Level = level, Cone = cone, Hx = hx, Rx = cone.Rx(hx), Section = section });
             }
 
-            for (var i = 0; i < rods.Count; i++)
+            foreach (var (i, j) in RodNeighbors.Build(rods).Pairs)
             {
-                for (var j = i + 1; j < rods.Count; j++)
+                var distance = Math.Sqrt(Math.Pow(rods[i].X - rods[j].X, 2) + Math.Pow(rods[i].Y - rods[j].Y, 2));
+                var pair = norm.Pair(rods[i].TotalHeight, rods[j].TotalHeight, distance, level);
+                if (!pair.Joined)
+                    continue;
+                result.Pairs.Add(new PairCheck
                 {
-                    var distance = Math.Sqrt(Math.Pow(rods[i].X - rods[j].X, 2) + Math.Pow(rods[i].Y - rods[j].Y, 2));
-                    var pair = norm.Pair(rods[i].TotalHeight, rods[j].TotalHeight, distance, level);
-                    if (!pair.Joined)
-                        continue;
-                    result.Pairs.Add(new PairCheck
-                    {
-                        First = rods[i],
-                        Second = rods[j],
-                        Distance = distance,
-                        Level = level,
-                        Zone = pair,
-                        Hx = hx,
-                        Rcx = pair.Rcx(hx),
-                        Section = section,
-                    });
-                }
+                    First = rods[i],
+                    Second = rods[j],
+                    Distance = distance,
+                    Level = level,
+                    Zone = pair,
+                    Hx = hx,
+                    Rcx = pair.Rcx(hx),
+                    Section = section,
+                });
             }
         }
 

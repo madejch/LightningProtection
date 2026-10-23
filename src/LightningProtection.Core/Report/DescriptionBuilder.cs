@@ -33,7 +33,7 @@ namespace LightningProtection.Core.Report
                 ["DENSITY"] = Fmt.N(result.GroundDensity, "0.0##"),
                 ["STRIKES"] = string.Concat(result.Strikes.Select(s =>
                     $" Ожидаемое число поражений молнией в год для объекта «{s.Object.Name}» (габариты {Fmt.M(s.Width)} × {Fmt.M(s.Length)} м, " +
-                    $"высота {Fmt.M(s.Height)} м) N = {Fmt.N(s.ExpectedStrikes, "0.0000")}.")),
+                    $"высота {Fmt.M(s.Height)} м) N = {Fmt.N(s.ExpectedStrikes, "0.0000")} (РД 34.21.122-87, прил. 2).")),
                 ["OBJECTS"] = string.Join("\n", result.Objects.Select(o =>
                     $"   — {o.Object.Name}: {ReportBuilder.DescribeSpace(o.Object)}, высота проверки {o.Section.Name} = {Fmt.M(o.Hx)} м, требуемая защита — {o.Level.Title()};")),
                 ["RODS_COUNT"] = project.Rods.Count.ToString(),
@@ -85,6 +85,27 @@ namespace LightningProtection.Core.Report
                               $"{condition}, {formula}; hc = {Fmt.M(pair.Zone.Hc)} м, rc = {Fmt.M(pair.Zone.Rc)} м;");
                 }
             }
+
+            if (project.Rods.Count > 2)
+            {
+                var soNote = project.Norm == NormKind.So153
+                    ? " В СО 153-34.21.122-2003 многократный молниеприёмник не рассматривается, принят подход РД 34.21.122-87."
+                    : "";
+                lines.Add("Зона защиты многократного молниеприёмника определена как зоны попарно взятых соседних молниеприёмников " +
+                          "(РД 34.21.122-87, прил. 3, п. 3); область между тремя соседними молниеприёмниками защищена " +
+                          "при rcx > 0 для каждой пары." + soNote);
+            }
+
+            var spaces = new List<string>();
+            if (project.Objects.Any(o => o.Kind == ObjectKind.GasVent))
+                spaces.Add("над обрезом газоотводных труб — по п. 2.6 (прямые трубы — полусфера R = 5 м, трубы с колпаками " +
+                           "и «гусаками» — цилиндр H × R в зависимости от плотности газа и давления)");
+            if (project.Objects.Any(o => o.Kind == ObjectKind.BreathingValve))
+                spaces.Add("над дыхательными клапанами — по п. 2.18 (цилиндр H = 2,5 м, R = 5 м)");
+            if (spaces.Count > 0)
+                lines.Add("Защищаемое пространство принято по РД 34.21.122-87: " + string.Join("; ", spaces) + "." +
+                          (project.Objects.Any(o => o.IsHemisphere) ? " Защищённость полусферы проверена по всей её высоте." : ""));
+
             return string.Join("\n", lines);
         }
 

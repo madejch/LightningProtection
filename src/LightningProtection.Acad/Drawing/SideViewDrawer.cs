@@ -146,16 +146,34 @@ namespace LightningProtection.Acad.Drawing
             var source = obj.Source;
             _ctx.Polyline(Rectangle(obj.U - 0.15, obj.U + 0.15, source.BaseElevation, source.SourceElevation), true,
                 DrawContext.LayerSideView);
-            _ctx.Polyline(Rectangle(obj.UMin, obj.UMax, source.SourceElevation, source.CheckElevation), true,
-                DrawContext.LayerSpaces, dashed: true);
 
-            var arrow = P3(obj.UMax, (source.SourceElevation + source.CheckElevation) / 2);
+            string space;
+            if (source.IsHemisphere)
+            {
+                // Полусфера в проекции — полуокружность радиуса R над обрезом.
+                const int segments = 36;
+                var arc = Enumerable.Range(0, segments + 1)
+                    .Select(k => Math.PI * k / segments)
+                    .Select(a => P(obj.U + source.Radius * Math.Cos(a), source.SourceElevation + source.Radius * Math.Sin(a)))
+                    .ToList();
+                _ctx.Polyline(arc, true, DrawContext.LayerSpaces, dashed: true);
+                space = $"полусфера R = {Fmt.M(source.Radius)} м";
+            }
+            else
+            {
+                _ctx.Polyline(Rectangle(obj.UMin, obj.UMax, source.SourceElevation, source.TopElevation), true,
+                    DrawContext.LayerSpaces, dashed: true);
+                space = $"R = {Fmt.M(source.Radius)} м, H = {Fmt.M(source.SpaceHeight)} м";
+            }
+
+            var arrow = P3(obj.UMax, source.SourceElevation + (source.TopElevation - source.SourceElevation) / 2);
+            if (source.IsHemisphere)
+                arrow = P3(obj.U + source.Radius * Math.Sqrt(0.5), source.SourceElevation + source.Radius * Math.Sqrt(0.5));
             _ctx.Leader(arrow, arrow + new Vector3d(Th * 4, Th * 3, 0),
-                $"{source.Name}\nобрез {Fmt.Elev(source.SourceElevation)}; R = {Fmt.M(source.Radius)} м, H = {Fmt.M(source.SpaceHeight)} м",
-                DrawContext.LayerSpaces);
+                $"{source.Name}\nобрез {Fmt.Elev(source.SourceElevation)}; {space}", DrawContext.LayerSpaces);
             var (edge, dimX) = VerticalDimPlace(obj.UMin, obj.UMax);
-            _ctx.LinearDim(P3(edge, source.SourceElevation), P3(edge, source.CheckElevation),
-                new Point3d(dimX, P3(edge, 0).Y, 0), Math.PI / 2, "H=<>", 1 / _k);
+            _ctx.LinearDim(P3(edge, source.SourceElevation), P3(edge, source.TopElevation),
+                new Point3d(dimX, P3(edge, 0).Y, 0), Math.PI / 2, source.IsHemisphere ? "R=<>" : "H=<>", 1 / _k);
         }
 
         /// <summary>Молниеприёмник: мачта, выноска Млn, размер полной высоты h.</summary>

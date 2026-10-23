@@ -86,6 +86,8 @@
                             <DataGridTextColumn Header="Тип" Binding="{Binding KindTitle, Mode=OneWay}" IsReadOnly="True" Width="*" />
                             <DataGridTextColumn Header="Отм. низа, м" Binding="{Binding BaseElevation}" Width="80" />
                             <DataGridTextColumn Header="Отм. верха / обреза, м" Binding="{Binding SourceElevation}" Width="130" />
+                            <DataGridComboBoxColumn x:Name="ShapeColumn" Header="Пространство" Width="100"
+                                                    SelectedValueBinding="{Binding Shape}" SelectedValuePath="Value" DisplayMemberPath="Title" />
                             <DataGridTextColumn Header="H пространства, м" Binding="{Binding SpaceHeight}" Width="110" />
                             <DataGridTextColumn Header="R пространства, м" Binding="{Binding Radius}" Width="110" />
                             <DataGridComboBoxColumn x:Name="RdZoneColumn" Header="Зона (РД-87)" Width="90"

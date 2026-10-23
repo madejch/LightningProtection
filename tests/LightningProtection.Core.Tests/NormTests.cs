@@ -49,7 +49,20 @@ namespace LightningProtection.Core.Tests
         {
             var norm = Rd87Norm.Instance;
             Assert.Equal(17 - (0.17 + 3e-4 * 20) * 10, norm.Pair(20, 20, 30, ZoneLevel.RdA).Hc, 6);
-            Assert.False(norm.Pair(20, 20, 41, ZoneLevel.RdA).Joined);
+            Assert.Equal(21.2, norm.Pair(20, 20, 30, ZoneLevel.RdA).Rc, 6);
+            Assert.False(norm.Pair(20, 20, 81, ZoneLevel.RdA).Joined);
+        }
+
+        [Fact]
+        public void Rd87_ZoneA_Pair_Between2hAnd4h_ReducesRc()
+        {
+            // h = 20, L = 50 (2h < L ≤ 4h): hc = 17 − 0,176·30; rc = r0[1 − 0,2(L − 2h)/h] = 21,2·0,9
+            var pair = Rd87Norm.Instance.Pair(20, 20, 50, ZoneLevel.RdA);
+            Assert.True(pair.Joined);
+            Assert.Equal(17 - 0.176 * 30, pair.Hc, 6);
+            Assert.Equal(21.2 * 0.9, pair.Rc, 6);
+            Assert.Equal(("2h < L ≤ 4h", "hc = h0 − (0,17 + 3·10⁻⁴h)(L − h); rc = r0[1 − 0,2(L − 2h)/h]"),
+                Rd87Norm.Instance.PairFormula(20, 20, 50, ZoneLevel.RdA));
         }
 
         [Theory]

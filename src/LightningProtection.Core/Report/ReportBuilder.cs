@@ -110,6 +110,8 @@ namespace LightningProtection.Core.Report
             if (!obj.IsCircular)
                 return $"кровля, отм. {Fmt.Elev(obj.SourceElevation)}";
             var source = obj.Kind == ObjectKind.BreathingValve ? "клапаном" : "обрезом";
+            if (obj.IsHemisphere)
+                return $"полусфера R = {Fmt.M(obj.Radius)} м над {source} {Fmt.Elev(obj.SourceElevation)}";
             return $"цилиндр R = {Fmt.M(obj.Radius)} м, H = {Fmt.M(obj.SpaceHeight)} м над {source} {Fmt.Elev(obj.SourceElevation)}";
         }
 

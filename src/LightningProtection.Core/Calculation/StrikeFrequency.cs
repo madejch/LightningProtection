@@ -8,7 +8,7 @@ namespace LightningProtection.Core.Calculation
     {
         /// <summary>
         /// Среднегодовое число ударов молнии в 1 км² земли, 1/(км²·год).
-        /// РД-87 — по таблице 2 от продолжительности гроз; СО 153 — формула (2.1): 6,7·Td/100.
+        /// РД-87 — по приложению 2 от продолжительности гроз; СО 153 — формула (2.1): 6,7·Td/100.
         /// </summary>
         public static double GroundDensity(NormKind norm, double thunderstormHours)
         {
@@ -25,7 +25,8 @@ namespace LightningProtection.Core.Calculation
         }
 
         /// <summary>
-        /// Ожидаемое число поражений в год объекта прямоугольной формы:
+        /// Ожидаемое число поражений в год объекта прямоугольной формы (РД-87, прил. 2;
+        /// в СО 153 такой формулы нет, она применяется и при расчёте по СО 153):
         /// N = [(S + 6h)(L + 6h) − 7,7h²]·n·10⁻⁶.
         /// </summary>
         public static double ExpectedStrikes(double width, double length, double height, double density)

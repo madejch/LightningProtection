@@ -104,7 +104,9 @@ namespace LightningProtection.Acad.Drawing
             var diagonal = new Vector3d(-Math.Sqrt(0.5), -Math.Sqrt(0.5), 0);
             var arrow = center + diagonal * radius;
             ctx.Leader(arrow, new Point3d(arrow.X + ctx.TextHeight * 2, landingY * ctx.Upm, 0),
-                $"{obj.Name}\nзащищаемое пространство: R = {Fmt.M(obj.Radius)} м, H = {Fmt.M(obj.SpaceHeight)} м",
+                obj.IsHemisphere
+                    ? $"{obj.Name}\nзащищаемое пространство: полусфера R = {Fmt.M(obj.Radius)} м"
+                    : $"{obj.Name}\nзащищаемое пространство: R = {Fmt.M(obj.Radius)} м, H = {Fmt.M(obj.SpaceHeight)} м",
                 DrawContext.LayerSpaces);
         }
 

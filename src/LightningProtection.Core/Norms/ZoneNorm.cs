@@ -77,6 +77,12 @@ namespace LightningProtection.Core.Norms
             return new PairZone((p1.Hc + p2.Hc) / 2, (Single(h1, level).R0 + Single(h2, level).R0) / 2);
         }
 
+        /// <summary>
+        /// Продолжается ли зона пары выше hc вдоль оси пары (выступ lx). Есть только в СО 153
+        /// (формула 3.5); в РД-87 выше hc остаются зоны одиночных молниеприёмников.
+        /// </summary>
+        public virtual bool HasSpurAboveHc => false;
+
         /// <summary>Ссылка на пункт нормы для зоны одиночного молниеприёмника.</summary>
         public abstract string SingleSource { get; }
 

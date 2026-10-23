@@ -38,16 +38,27 @@ namespace LightningProtection.Core.Model
         /// <summary>Отметка верха здания или обреза трубы/клапана, м.</summary>
         [DataMember] public double SourceElevation { get; set; }
 
-        /// <summary>Высота защищаемого пространства над обрезом, м (для здания 0).</summary>
+        /// <summary>Высота защищаемого пространства над обрезом, м (для здания 0, для полусферы не используется).</summary>
         [DataMember] public double SpaceHeight { get; set; }
+
+        /// <summary>Форма пространства над обрезом: цилиндр H × R или полусфера R.</summary>
+        [DataMember] public SpaceShape Shape { get; set; }
 
         [DataMember] public RdZone RdZone { get; set; } = RdZone.B;
         [DataMember] public SoReliability SoReliability { get; set; } = SoReliability.P090;
 
         public bool IsCircular => Contour == null || Contour.Count < 3;
 
-        /// <summary>Отметка hx, на которой проверяется защищённость объекта.</summary>
-        public double CheckElevation => SourceElevation + SpaceHeight;
+        public bool IsHemisphere => IsCircular && Shape == SpaceShape.Hemisphere;
+
+        /// <summary>
+        /// Отметка hx сечения зоны на плане. Для цилиндра и здания — верх пространства; для полусферы —
+        /// её основание (обрез трубы), а защищённость проверяется по всей высоте полусферы.
+        /// </summary>
+        public double CheckElevation => IsHemisphere ? SourceElevation : SourceElevation + SpaceHeight;
+
+        /// <summary>Верх защищаемого пространства, м.</summary>
+        public double TopElevation => IsHemisphere ? SourceElevation + Radius : SourceElevation + SpaceHeight;
 
         public string KindTitle => Kind.Title();
 
