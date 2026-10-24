@@ -7,19 +7,27 @@ using LightningProtection.Core.Model;
 
 namespace LightningProtection.Acad
 {
-    /// <summary>Указание объектов и точек на чертеже. Координаты переводятся в метры МСК.</summary>
+    /// <summary>
+    /// Указание объектов и точек на чертеже. Координаты переводятся в метры МСК; объекты
+    /// и молниеприёмники добавляются в выбранный расчётный участок.
+    /// </summary>
     internal sealed class Picker
     {
         private readonly Editor _ed;
         private readonly Database _db;
         private readonly ProtectionProject _project;
+        private readonly ProtectionSystem _system;
 
-        public Picker(Editor ed, Database db, ProtectionProject project)
+        public Picker(Editor ed, Database db, ProtectionProject project, ProtectionSystem system)
         {
             _ed = ed;
             _db = db;
             _project = project;
+            _system = system;
         }
+
+        /// <summary>Номер следующего молниеприёмника — сквозной по всем участкам чертежа.</summary>
+        private int NextRodNumber => _project.Systems.Sum(s => s.Rods.Count) + 1;
 
         private double Upm => _project.Drawing.UnitsPerMeter;
 
@@ -45,7 +53,7 @@ namespace LightningProtection.Acad
                 return;
             }
 
-            var name = AskString("Наименование здания", $"Здание {_project.Objects.Count(o => o.Kind == ObjectKind.Building) + 1}");
+            var name = AskString("Наименование здания", $"Здание {_project.Systems.Sum(s => s.Objects.Count(o => o.Kind == ObjectKind.Building)) + 1}");
             if (name == null)
                 return;
             var top = AskDouble("Отметка верха здания (кровля, парапет), м", 10);
@@ -54,7 +62,7 @@ namespace LightningProtection.Acad
 
             var building = ObjectPresets.Building(name, top.Value);
             building.Contour = contour;
-            _project.Objects.Add(building);
+            _system.Objects.Add(building);
         }
 
         public void AddGasVent()
@@ -68,7 +76,7 @@ namespace LightningProtection.Acad
             var outlet = AskDouble("Отметка обреза свечи, м", 6);
             if (outlet == null)
                 return;
-            _project.Objects.Add(ObjectPresets.GasVent(name, axis, outlet.Value));
+            _system.Objects.Add(ObjectPresets.GasVent(name, axis, outlet.Value));
         }
 
         public void AddBreathingValve()
@@ -82,7 +90,7 @@ namespace LightningProtection.Acad
             var valve = AskDouble("Отметка дыхательного клапана, м", 4);
             if (valve == null)
                 return;
-            _project.Objects.Add(ObjectPresets.BreathingValve(name, axis, valve.Value));
+            _system.Objects.Add(ObjectPresets.BreathingValve(name, axis, valve.Value));
         }
 
         public void AddRods()
@@ -92,12 +100,12 @@ namespace LightningProtection.Acad
                 return;
             while (true)
             {
-                var point = AskPoint($"\nУкажите место молниеприёмника Мл{_project.Rods.Count + 1} или Enter для завершения: ");
+                var point = AskPoint($"\nУкажите место молниеприёмника Мл{NextRodNumber} ({_system.Name}) или Enter для завершения: ");
                 if (point == null)
                     return;
-                _project.Rods.Add(new LightningRod
+                _system.Rods.Add(new LightningRod
                 {
-                    Name = $"Мл{_project.Rods.Count + 1}",
+                    Name = $"Мл{NextRodNumber}",
                     X = point.X,
                     Y = point.Y,
                     BaseElevation = baseElevation.Value,

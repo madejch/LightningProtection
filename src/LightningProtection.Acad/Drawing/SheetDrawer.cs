@@ -13,9 +13,12 @@ namespace LightningProtection.Acad.Drawing
         /// <summary>Ширина описательной части на листе, мм.</summary>
         private const double DescriptionWidthMm = 185;
 
-        public static void DrawTables(DrawContext ctx, IReadOnlyList<ReportTable> tables, Point2 origin)
+        /// <summary>Таблицы участка под заголовком с его наименованием.</summary>
+        public static void DrawTables(DrawContext ctx, string systemName, IReadOnlyList<ReportTable> tables, Point2 origin)
         {
-            var y = origin.Y;
+            var header = ctx.Text(new Point3d(origin.X, origin.Y, 0), $"Расчёт молниезащиты: {systemName}",
+                attachment: AttachmentPoint.TopLeft, height: ctx.TextHeight * 1.4);
+            var y = origin.Y - header.TextHeight * 2.5;
             foreach (var report in tables)
             {
                 var table = DrawTable(ctx, report, new Point3d(origin.X, y, 0));
@@ -23,10 +26,10 @@ namespace LightningProtection.Acad.Drawing
             }
         }
 
-        public static void DrawDescription(DrawContext ctx, string text, Point2 origin)
+        public static void DrawDescription(DrawContext ctx, string systemName, string text, Point2 origin)
         {
             var width = DescriptionWidthMm * ctx.TextHeight / 2.5;
-            var title = ctx.Text(new Point3d(origin.X, origin.Y, 0), "Описание системы молниезащиты",
+            var title = ctx.Text(new Point3d(origin.X, origin.Y, 0), $"Описание системы молниезащиты: {systemName}",
                 attachment: AttachmentPoint.TopLeft, height: ctx.TextHeight * 1.4, width: width);
             ctx.Text(new Point3d(origin.X, origin.Y - title.TextHeight * 2.5, 0), text,
                 attachment: AttachmentPoint.TopLeft, width: width);

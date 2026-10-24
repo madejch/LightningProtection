@@ -56,6 +56,9 @@ namespace LightningProtection.Acad.Drawing
             DimStyleId = EnsureDimStyle();
         }
 
+        /// <summary>Код рисуемого расчётного участка — записывается в XData каждого объекта.</summary>
+        public string? SystemId { get; set; }
+
         public Database Db { get; }
         public Transaction Tr { get; }
         public BlockTableRecord Space { get; }
@@ -92,11 +95,19 @@ namespace LightningProtection.Acad.Drawing
             }
             entity.XData = new ResultBuffer(
                 new TypedValue((int)DxfCode.ExtendedDataRegAppName, AppName),
-                new TypedValue((int)DxfCode.ExtendedDataAsciiString, "lightning-protection"));
+                new TypedValue((int)DxfCode.ExtendedDataAsciiString, "lightning-protection"),
+                new TypedValue((int)DxfCode.ExtendedDataAsciiString, SystemId ?? ""));
             Space.AppendEntity(entity);
             Tr.AddNewlyCreatedDBObject(entity, true);
+            Capture?.Add(entity.ObjectId);
             return entity;
         }
+
+        /// <summary>
+        /// Если задан — сюда собираются все создаваемые объекты (для предпросмотра и переноса
+        /// вида сбоку, таблиц и описания при размещении).
+        /// </summary>
+        public List<ObjectId>? Capture { get; set; }
 
         /// <summary>Полилиния по точкам в единицах чертежа.</summary>
         public Polyline Polyline(IReadOnlyList<Point2d> points, bool closed, string layer, short? color = null, bool dashed = false)
@@ -166,39 +177,66 @@ namespace LightningProtection.Acad.Drawing
             var dimension = new RotatedDimension(rotation, p1, p2, dimLine, text, DimStyleId);
             if (Math.Abs(lengthFactor - 1) > 1e-9)
                 dimension.Dimlfac = lengthFactor;
-            return Add(dimension, LayerDimensions);
+            Add(dimension, LayerDimensions);
+            // Блок размера строится сразу — иначе в предпросмотре размеров не видно.
+            dimension.RecomputeDimensionBlock(true);
+            return dimension;
         }
 
         public AlignedDimension AlignedDim(Point3d p1, Point3d p2, Point3d dimLine, string text = "")
-            => Add(new AlignedDimension(p1, p2, dimLine, text, DimStyleId), LayerDimensions);
+        {
+            var dimension = Add(new AlignedDimension(p1, p2, dimLine, text, DimStyleId), LayerDimensions);
+            dimension.RecomputeDimensionBlock(true);
+            return dimension;
+        }
 
-        /// <summary>Удаляет всё, что было нарисовано плагином ранее.</summary>
-        public int EraseOwned() => EraseOwned(Tr, Space);
+        /// <summary>
+        /// Удаляет прежнюю отрисовку текущего участка <see cref="SystemId"/>, а также объекты
+        /// старых версий плагина, не привязанные к участку. Отрисовку других участков не трогает.
+        /// </summary>
+        public int EraseOwned() => EraseOwned(Tr, Space, SystemId);
 
-        /// <summary>Удаление без создания слоёв и стилей — для команды очистки.</summary>
+        /// <summary>Удаление всей отрисовки без создания слоёв и стилей — для команды очистки.</summary>
         public static int EraseOwned(Database db)
         {
             using var tr = db.TransactionManager.StartTransaction();
             var blockTable = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
             var space = (BlockTableRecord)tr.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForRead);
-            var count = EraseOwned(tr, space);
+            var count = EraseOwned(tr, space, null);
             tr.Commit();
             return count;
         }
 
-        private static int EraseOwned(Transaction tr, BlockTableRecord space)
+        private static int EraseOwned(Transaction tr, BlockTableRecord space, string? systemId)
         {
             var count = 0;
             foreach (ObjectId id in space)
             {
                 var entity = tr.GetObject(id, OpenMode.ForRead) as Entity;
-                if (entity?.GetXDataForApplication(AppName) == null)
+                using var xdata = entity?.GetXDataForApplication(AppName);
+                if (xdata == null)
                     continue;
-                entity.UpgradeOpen();
+                if (systemId != null)
+                {
+                    var owner = OwnerOf(xdata);
+                    if (owner != null && owner != systemId)
+                        continue;
+                }
+                entity!.UpgradeOpen();
                 entity.Erase();
                 count++;
             }
             return count;
+        }
+
+        /// <summary>Код участка из XData: вторая строка после метки плагина (у старых версий её нет).</summary>
+        private static string? OwnerOf(ResultBuffer xdata)
+        {
+            var strings = xdata.AsArray()
+                .Where(v => v.TypeCode == (int)DxfCode.ExtendedDataAsciiString)
+                .Select(v => v.Value as string)
+                .ToList();
+            return strings.Count > 1 && !string.IsNullOrEmpty(strings[1]) ? strings[1] : null;
         }
 
         public void Commit() => Tr.Commit();

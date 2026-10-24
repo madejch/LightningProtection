@@ -48,8 +48,30 @@
                     <TextBox x:Name="SideScaleBox" Width="50" ToolTip="0 или 1 — как у плана" />
                     <TextBlock Text="Высота текста, мм:" VerticalAlignment="Center" />
                     <TextBox x:Name="TextHeightBox" Width="40" />
+                </WrapPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Расчётный участок: свои объекты, молниеприёмники, вид сбоку, таблицы и описание -->
+        <GroupBox DockPanel.Dock="Top" Header="Расчётный участок" Padding="6" Margin="0,6,0,0">
+            <StackPanel>
+                <WrapPanel>
+                    <TextBlock Text="Участок:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="SystemBox" Width="220" Margin="4,0,6,0" DisplayMemberPath="Name"
+                              SelectionChanged="SystemBox_SelectionChanged" />
+                    <Button Content="+ Новый участок" Click="AddSystem_Click" />
+                    <Button Content="Удалить участок" Click="DeleteSystem_Click" />
+                    <TextBlock Text="Наименование:" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    <TextBox x:Name="SystemNameBox" Width="200" LostFocus="SystemNameBox_LostFocus" />
                     <TextBlock Text="Вид сбоку — ось вида от X, °:" VerticalAlignment="Center" />
                     <TextBox x:Name="AngleBox" Width="40" />
+                </WrapPanel>
+                <WrapPanel Margin="0,6,0,0">
+                    <TextBlock VerticalAlignment="Center" Foreground="Gray"
+                               Text="Участки считаются и рисуются отдельно: мачты одного участка не участвуют в зонах другого." />
+                    <TextBlock Text="Перенести выбранный объект или молниеприёмник в участок:" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <ComboBox x:Name="MoveTargetBox" Width="180" Margin="4,0,6,0" DisplayMemberPath="Name" />
+                    <Button Content="Перенести" Click="MoveSelected_Click" />
                 </WrapPanel>
             </StackPanel>
         </GroupBox>
@@ -58,7 +80,8 @@
         <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" LastChildFill="False">
             <Button Content="Рассчитать" Click="Calculate_Click" />
             <Button Content="Подобрать высоту" Click="Optimize_Click" FontWeight="Bold" />
-            <Button Content="Отрисовать на чертеже" Click="Draw_Click" />
+            <Button Content="Отрисовать участок" Click="Draw_Click" />
+            <Button Content="Отрисовать все участки" Click="DrawAll_Click" />
             <CheckBox x:Name="ResetPlacementBox" Content="указать места вида, таблиц и текста заново"
                       VerticalAlignment="Center" Margin="4,0,0,0" />
             <Button DockPanel.Dock="Right" Content="Отмена" IsCancel="True" Margin="6,0,0,0" />

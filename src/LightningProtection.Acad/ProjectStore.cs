@@ -69,6 +69,7 @@ namespace LightningProtection.Acad
                 UnitsValue.Centimeters => 100,
                 _ => 1000,
             };
+            project.EnsureSystems();
             return project;
         }
     }

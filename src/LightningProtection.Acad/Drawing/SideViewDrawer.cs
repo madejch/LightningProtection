@@ -79,7 +79,7 @@ namespace LightningProtection.Acad.Drawing
             DrawHorizontalDimensions();
 
             _ctx.Text(P3((_uStart + _uEnd) / 2, 0) + new Vector3d(0, -Th * 9, 0),
-                $"Вид сбоку   М 1:{_sideScale:0}", DrawContext.LayerText,
+                (string.IsNullOrEmpty(_project.Title) ? "" : $"{_project.Title}. ") + $"Вид сбоку   М 1:{_sideScale:0}", DrawContext.LayerText,
                 attachment: AttachmentPoint.TopCenter, height: Th * 1.4);
         }
 

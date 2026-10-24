@@ -278,14 +278,81 @@ namespace LightningProtection.Core.Tests
         }
 
         [Fact]
-        public void Serializer_RoundTrip()
+        public void Serializer_RoundTrip_KeepsSystems()
         {
-            var project = GruProject();
+            var project = new ProtectionProject();
+            var boiler = project.AddSystem("Котельная");
+            boiler.Objects.AddRange(GruProject().Objects);
+            boiler.Rods.AddRange(GruProject().Rods);
+            boiler.TableInsertPoint = new Point2(1, 2);
+            var warehouse = project.AddSystem("Склад");
+            warehouse.Rods.Add(new LightningRod { Name = "Мл3", X = 500 });
+
             var copy = ProjectSerializer.FromJson(ProjectSerializer.ToJson(project));
-            Assert.Equal(project.Objects.Count, copy.Objects.Count);
-            Assert.Equal(project.Rods[1].X, copy.Rods[1].X);
-            Assert.Equal(4, copy.Objects[0].Contour.Count);
-            Assert.Equal(ObjectKind.GasVent, copy.Objects[1].Kind);
+            Assert.Equal(new[] { "Котельная", "Склад" }, copy.Systems.Select(s => s.Name));
+            Assert.Equal(boiler.Id, copy.Systems[0].Id);
+            Assert.Equal(3, copy.Systems[0].Objects.Count);
+            Assert.Equal(4, copy.Systems[0].Objects[0].Contour.Count);
+            Assert.Equal(ObjectKind.GasVent, copy.Systems[0].Objects[1].Kind);
+            Assert.Equal(2, copy.Systems[0].TableInsertPoint!.Y);
+            Assert.Equal(500, Assert.Single(copy.Systems[1].Rods).X);
+            Assert.Empty(copy.Objects);
+            Assert.Empty(copy.Rods);
+        }
+
+        [Fact]
+        public void LegacyProject_IsMigratedToOneSystem()
+        {
+            // Чертёж версии 0.2: объекты, молниеприёмники и точки вставки лежат прямо в проекте.
+            var legacy = GruProject();
+            legacy.Drawing.SideViewInsertPoint = new Point2(0, -60000);
+            legacy.Drawing.SideViewAngleDeg = 90;
+            var json = ProjectSerializer.ToJson(legacy).Replace("\"Systems\":[],", "");
+
+            var project = ProjectSerializer.FromJson(json);
+            var system = Assert.Single(project.Systems);
+            Assert.Equal("Участок 1", system.Name);
+            Assert.Equal(3, system.Objects.Count);
+            Assert.Equal(2, system.Rods.Count);
+            Assert.Equal(-60000, system.SideViewInsertPoint!.Y);
+            Assert.Equal(90, system.SideViewAngleDeg);
+            Assert.Empty(project.Objects);
+            Assert.Null(project.Drawing.SideViewInsertPoint);
+        }
+
+        [Fact]
+        public void Systems_AreCalculatedIndependently()
+        {
+            // Два здания в 200 м друг от друга, у каждого свои мачты. Мачта склада не должна
+            // попадать в пары, таблицы и зону котельной, и наоборот.
+            var project = new ProtectionProject { Norm = NormKind.Rd87 };
+            var boiler = project.AddSystem("Котельная");
+            var building = ObjectPresets.Building("Котельная", 9);
+            building.Contour = new List<Point2> { new(0, 0), new(24, 0), new(24, 12), new(0, 12) };
+            boiler.Objects.Add(building);
+            boiler.Rods.Add(new LightningRod { Name = "Мл1", X = -2, Y = 6, MastHeight = 18 });
+            boiler.Rods.Add(new LightningRod { Name = "Мл2", X = 26, Y = 6, MastHeight = 18 });
+
+            var store = project.AddSystem("Склад");
+            var shed = ObjectPresets.Building("Склад", 6);
+            shed.Contour = new List<Point2> { new(200, 0), new(212, 0), new(212, 8), new(200, 8) };
+            store.Objects.Add(shed);
+            store.Rods.Add(new LightningRod { Name = "Мл3", X = 206, Y = 4, MastHeight = 14 });
+
+            var boilerResult = ProtectionCalculator.Calculate(project.ForSystem(boiler));
+            var storeResult = ProtectionCalculator.Calculate(project.ForSystem(store));
+
+            Assert.All(boilerResult.Rods, r => Assert.Contains(r.Rod, boiler.Rods));
+            Assert.All(boilerResult.Pairs, p => Assert.DoesNotContain(p.Second, store.Rods));
+            Assert.Equal(new[] { "Мл3" }, storeResult.Rods.Select(r => r.Rod.Name).Distinct());
+            Assert.Empty(storeResult.Pairs);
+            Assert.Equal("hx", Assert.Single(storeResult.Sections).Name);
+            Assert.True(boilerResult.Sections[0].Zone.EnvelopeInternal.MaxX < 150);
+
+            // Подбор высоты меняет мачты только своего участка.
+            HeightOptimizer.Optimize(project.ForSystem(store));
+            Assert.Equal(18, boiler.Rods[0].MastHeight);
+            Assert.Equal("Склад", project.ForSystem(store).Title);
         }
     }
 }
